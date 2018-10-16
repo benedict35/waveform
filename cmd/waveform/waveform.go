@@ -4,16 +4,43 @@
 package main
 
 import (
+	"bufio"
 	"flag"
 	"fmt"
 	"image/color"
-	"image/png"
 	"log"
 	"os"
 	"strconv"
 
+	"bytes"
+	"encoding/base64"
+	"encoding/json"
+
 	"github.com/mdlayher/waveform"
+	"golang.org/x/image/tiff"
 )
+
+type Request struct {
+	id string
+	function string
+	params []string
+}
+
+type Requests struct
+{
+	Collection []Request
+}
+
+type Response struct {
+	id string
+	result string
+	Error string `json:"error"`
+}
+
+type Responses struct
+{
+	Collection []Response
+}
 
 const (
 	// app is the name of this application
@@ -64,7 +91,7 @@ func main() {
 
 	// Move all logging output to stderr, as output image will occupy
 	// the stdout stream
-	log.SetOutput(os.Stderr)
+	//log.SetOutput(os.Stderr)
 	log.SetPrefix(app + ": ")
 
 	// Create image background color from input hex color string, or default
@@ -100,6 +127,20 @@ func main() {
 		log.Fatalf("unknown function: %q %s", *strFn, fnOptions)
 	}
 
+	r := make([]Request, 0)
+
+	scanner := bufio.NewScanner(os.Stdin)
+	for scanner.Scan() {
+		b := []byte(scanner.Text())
+		json.Unmarshal(b, &r)
+		fmt.Println(r)
+	}
+	if err := scanner.Err(); err != nil {
+		log.Println(err)
+	}
+
+	fmt.Println(r)
+
 	// Generate a waveform image from stdin, using values passed from
 	// flags as options
 	img, err := waveform.Generate(os.Stdin,
@@ -127,10 +168,19 @@ func main() {
 		panic(err)
 	}
 
-	// Encode results as PNG to stdout
-	if err := png.Encode(os.Stdout, img); err != nil {
+	// In-memory buffer to store TIFF image
+	// before we base 64 encode it
+	var buff bytes.Buffer
+
+	// Encode results as TIFF to temp buffer
+	if err := tiff.Encode(&buff, img, nil); err != nil {
 		panic(err)
 	}
+
+	// Encode the bytes in the buffer to a base64 string
+	encodedString := base64.StdEncoding.EncodeToString(buff.Bytes())
+
+	fmt.Println(encodedString)
 }
 
 // hexToRGB converts a hex string to a RGB triple.
@@ -149,3 +199,5 @@ func hexToRGB(h string) (uint8, uint8, uint8) {
 	}
 	return 0, 0, 0
 }
+
+
