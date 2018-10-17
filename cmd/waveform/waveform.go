@@ -15,31 +15,32 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
+	"io"
 
 	"github.com/mdlayher/waveform"
 	"golang.org/x/image/tiff"
 )
 
 type Request struct {
-	id string
-	function string
-	params []string
+	Id string `json:"id"`
+	Function string `json:"function"`
+	Params []string `json:"params"`
 }
 
 type Requests struct
 {
-	Collection []Request
+	Requests []Request `json:"requests"`
 }
 
 type Response struct {
-	id string
-	result string
+	Id string `json:"id"`
+	Result string `json:"result"`
 	Error string `json:"error"`
 }
 
 type Responses struct
 {
-	Collection []Response
+	Responses []Response `json:"responses"`
 }
 
 const (
@@ -125,62 +126,86 @@ func main() {
 	colorFn, ok := fnSet[*strFn]
 	if !ok {
 		log.Fatalf("unknown function: %q %s", *strFn, fnOptions)
-	}
+	}	
 
-	r := make([]Request, 0)
+	reader := bufio.NewReader(os.Stdin)
+	var buf bytes.Buffer
+	for {
 
-	scanner := bufio.NewScanner(os.Stdin)
-	for scanner.Scan() {
-		b := []byte(scanner.Text())
-		json.Unmarshal(b, &r)
-		fmt.Println(r)
-	}
-	if err := scanner.Err(); err != nil {
-		log.Println(err)
-	}
+		line, err := reader.ReadString('\n')
+		//fmt.Println(string(line))
 
-	fmt.Println(r)
+		if err != nil {
+			if err == io.EOF {
+				buf.WriteString(line)
+	
+				var requests Requests
+				json.Unmarshal(buf.Bytes(), &requests)
+				//fmt.Println(string(buf.Bytes()))
+				//fmt.Println(requests)
+				for _, request := range requests.Requests {
+					if request.Function == "waveform" {
+						unbased, err := base64.StdEncoding.DecodeString(request.Params[0])
 
-	// Generate a waveform image from stdin, using values passed from
-	// flags as options
-	img, err := waveform.Generate(os.Stdin,
-		waveform.BGColorFunction(waveform.SolidColor(bgColor)),
-		waveform.FGColorFunction(colorFn),
-		waveform.Resolution(*resolution),
-		waveform.Scale(*scaleX, *scaleY),
-		waveform.ScaleClipping(),
-		waveform.Sharpness(*sharpness),
-	)
-	if err != nil {
-		// Set of known errors
-		knownErr := map[error]struct{}{
-			waveform.ErrFormat:        struct{}{},
-			waveform.ErrInvalidData:   struct{}{},
-			waveform.ErrUnexpectedEOS: struct{}{},
+						flacReader := bytes.NewReader(unbased)
+
+						// Generate a waveform image from stdin, using values passed from
+						// flags as options
+						img, err := waveform.Generate(flacReader,
+							waveform.BGColorFunction(waveform.SolidColor(bgColor)),
+							waveform.FGColorFunction(colorFn),
+							waveform.Resolution(*resolution),
+							waveform.Scale(*scaleX, *scaleY),
+							waveform.ScaleClipping(),
+							waveform.Sharpness(*sharpness),
+						)
+						if err != nil {
+							// Set of known errors
+							knownErr := map[error]struct{}{
+								waveform.ErrFormat:        struct{}{},
+								waveform.ErrInvalidData:   struct{}{},
+								waveform.ErrUnexpectedEOS: struct{}{},
+							}
+
+							// On known error, fatal log
+							if _, ok := knownErr[err]; ok {
+								log.Fatal(err)
+							}
+
+							// Unknown errors, panic
+							panic(err)
+						}
+
+						// In-memory buffer to store TIFF image
+						// before we base 64 encode it
+						var buff bytes.Buffer
+
+						// Encode results as TIFF to temp buffer
+						if err := tiff.Encode(&buff, img, nil); err != nil {
+							panic(err)
+						}
+
+						// Encode the bytes in the buffer to a base64 string
+						encodedString := base64.StdEncoding.EncodeToString(buff.Bytes())
+
+						responses := Responses{[]Response{Response{request.Id, encodedString, "false"}}}
+
+						b, err := json.Marshal(responses)
+						
+						fmt.Println(string(b))
+					}
+				}
+				
+				break // end of the input
+
+			} else {
+					fmt.Println(err.Error())
+					os.Exit(1) // something bad happened
+			}   
 		}
-
-		// On known error, fatal log
-		if _, ok := knownErr[err]; ok {
-			log.Fatal(err)
-		}
-
-		// Unknown errors, panic
-		panic(err)
+		
+		buf.WriteString(line)
 	}
-
-	// In-memory buffer to store TIFF image
-	// before we base 64 encode it
-	var buff bytes.Buffer
-
-	// Encode results as TIFF to temp buffer
-	if err := tiff.Encode(&buff, img, nil); err != nil {
-		panic(err)
-	}
-
-	// Encode the bytes in the buffer to a base64 string
-	encodedString := base64.StdEncoding.EncodeToString(buff.Bytes())
-
-	fmt.Println(encodedString)
 }
 
 // hexToRGB converts a hex string to a RGB triple.
@@ -199,5 +224,3 @@ func hexToRGB(h string) (uint8, uint8, uint8) {
 	}
 	return 0, 0, 0
 }
-
-

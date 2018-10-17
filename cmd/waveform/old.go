@@ -6,17 +6,19 @@ package main
 import (
 	"flag"
 	"fmt"
-	"image/color"
+	//"image/color"
 	//"image/png"
 	"log"
 	"os"
 	"strconv"
 
-	"bytes"
+	//"bytes"
   "encoding/base64"
 
-	"github.com/mdlayher/waveform"
-	"golang.org/x/image/tiff"
+	//"github.com/mdlayher/waveform"
+	//"golang.org/x/image/tiff"
+
+	"io/ioutil"
 )
 
 const (
@@ -64,89 +66,95 @@ var fnOptions = fmt.Sprintf("[options: %s, %s, %s, %s, %s]", fnChecker, fnFuzz, 
 
 func main() {
 	// Parse flags
-	flag.Parse()
+	// flag.Parse()
 
-	// Move all logging output to stderr, as output image will occupy
-	// the stdout stream
-	//log.SetOutput(os.Stderr)
-	log.SetPrefix(app + ": ")
+	// // Move all logging output to stderr, as output image will occupy
+	// // the stdout stream
+	// //log.SetOutput(os.Stderr)
+	// log.SetPrefix(app + ": ")
 
-	// Create image background color from input hex color string, or default
-	// to black if invalid
-	colorR, colorG, colorB := hexToRGB(*strBGColor)
-	bgColor := color.RGBA{colorR, colorG, colorB, 255}
+	// // Create image background color from input hex color string, or default
+	// // to black if invalid
+	// colorR, colorG, colorB := hexToRGB(*strBGColor)
+	// bgColor := color.RGBA{colorR, colorG, colorB, 255}
 
-	// Create image foreground color from input hex color string, or default
-	// to black if invalid
-	colorR, colorG, colorB = hexToRGB(*strFGColor)
-	fgColor := color.RGBA{colorR, colorG, colorB, 255}
+	// // Create image foreground color from input hex color string, or default
+	// // to black if invalid
+	// colorR, colorG, colorB = hexToRGB(*strFGColor)
+	// fgColor := color.RGBA{colorR, colorG, colorB, 255}
 
-	// Create image alternate color from input hex color string, or default
-	// to foreground color if empty
-	altColor := fgColor
-	if *strAltColor != "" {
-		colorR, colorG, colorB = hexToRGB(*strAltColor)
-		altColor = color.RGBA{colorR, colorG, colorB, 255}
-	}
+	// // Create image alternate color from input hex color string, or default
+	// // to foreground color if empty
+	// altColor := fgColor
+	// if *strAltColor != "" {
+	// 	colorR, colorG, colorB = hexToRGB(*strAltColor)
+	// 	altColor = color.RGBA{colorR, colorG, colorB, 255}
+	// }
 
-	// Set of available functions
-	fnSet := map[string]waveform.ColorFunc{
-		fnChecker:  waveform.CheckerColor(fgColor, altColor, 10),
-		fnFuzz:     waveform.FuzzColor(fgColor, altColor),
-		fnGradient: waveform.GradientColor(fgColor, altColor),
-		fnSolid:    waveform.SolidColor(fgColor),
-		fnStripe:   waveform.StripeColor(fgColor, altColor),
-	}
+	// // Set of available functions
+	// fnSet := map[string]waveform.ColorFunc{
+	// 	fnChecker:  waveform.CheckerColor(fgColor, altColor, 10),
+	// 	fnFuzz:     waveform.FuzzColor(fgColor, altColor),
+	// 	fnGradient: waveform.GradientColor(fgColor, altColor),
+	// 	fnSolid:    waveform.SolidColor(fgColor),
+	// 	fnStripe:   waveform.StripeColor(fgColor, altColor),
+	// }
 
-	// Validate user-selected function
-	colorFn, ok := fnSet[*strFn]
-	if !ok {
-		log.Fatalf("unknown function: %q %s", *strFn, fnOptions)
+	// // Validate user-selected function
+	// colorFn, ok := fnSet[*strFn]
+	// if !ok {
+	// 	log.Fatalf("unknown function: %q %s", *strFn, fnOptions)
+	// }
+
+	b, err := ioutil.ReadAll(os.Stdin)
+	if err != nil {
+		log.Fatal(err)
 	}
 
 	// Generate a waveform image from stdin, using values passed from
 	// flags as options
-	img, err := waveform.Generate(os.Stdin,
-		waveform.BGColorFunction(waveform.SolidColor(bgColor)),
-		waveform.FGColorFunction(colorFn),
-		waveform.Resolution(*resolution),
-		waveform.Scale(*scaleX, *scaleY),
-		waveform.ScaleClipping(),
-		waveform.Sharpness(*sharpness),
-	)
-	if err != nil {
-		// Set of known errors
-		knownErr := map[error]struct{}{
-			waveform.ErrFormat:        struct{}{},
-			waveform.ErrInvalidData:   struct{}{},
-			waveform.ErrUnexpectedEOS: struct{}{},
-		}
+	// img, err := waveform.Generate(os.Stdin,
+	// 	waveform.BGColorFunction(waveform.SolidColor(bgColor)),
+	// 	waveform.FGColorFunction(colorFn),
+	// 	waveform.Resolution(*resolution),
+	// 	waveform.Scale(*scaleX, *scaleY),
+	// 	waveform.ScaleClipping(),
+	// 	waveform.Sharpness(*sharpness),
+	// )
+	// if err != nil {
+	// 	// Set of known errors
+	// 	knownErr := map[error]struct{}{
+	// 		waveform.ErrFormat:        struct{}{},
+	// 		waveform.ErrInvalidData:   struct{}{},
+	// 		waveform.ErrUnexpectedEOS: struct{}{},
+	// 	}
 
-		// On known error, fatal log
-		if _, ok := knownErr[err]; ok {
-			log.Fatal(err)
-		}
+	// 	// On known error, fatal log
+	// 	if _, ok := knownErr[err]; ok {
+	// 		log.Fatal(err)
+	// 		log.Fatal(img)
+	// 	}
 
-		// Unknown errors, panic
-		panic(err)
-	}
+	// 	// Unknown errors, panic
+	// 	panic(err)
+	// }
 
-	// In-memory buffer to store TIFF image
-	// before we base 64 encode it
-	var buff bytes.Buffer
-	//var b = buff.Bytes()
+	// // In-memory buffer to store TIFF image
+	// // before we base 64 encode it
+	// var buff bytes.Buffer
+	// //var b = buff.Bytes()
 
-	// Encode results as TIFF to temp buffer
-	if err := tiff.Encode(&buff, img, nil); err != nil {
-		panic(err)
-	}
+	// // Encode results as TIFF to temp buffer
+	// if err := tiff.Encode(&buff, img, nil); err != nil {
+	// 	panic(err)
+	// }
 	// if err := tiff.Encode(os.Stdout, img, nil); err != nil {
 	// 	panic(err)
 	// }
 
 	// Encode the bytes in the buffer to a base64 string
 	//var data = "masilo"
-	encodedString := base64.StdEncoding.EncodeToString(buff.Bytes())
+	encodedString := base64.StdEncoding.EncodeToString(b)
 	//encodedString := base64.StdEncoding.EncodeToString([]byte(data))
 
 	//htmlImage := "<img src=\"data:image/tiff;base64," + encodedString + "\" />"

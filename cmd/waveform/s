@@ -1,1 +1,3 @@
-[{"id": "0","function":"waveform","params":["mas"]}]
+{"requests":[{"id": "1","function":"waveform","params":["mas"]}]}
+
+{\"requests\":[{\"id\":0,\"function\":\"helloWorldMarsRegex\",\"paramsType\":\"ordered\",\"params\":[\"Hello World\"]}]}
